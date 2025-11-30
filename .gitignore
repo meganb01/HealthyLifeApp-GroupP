@@ -1,0 +1,11 @@
+# Ignore build output
+/build/
+/dist/
+/nbproject/private/
+/target/
+*.class
+*.rs
+
+# Ignore system files
+.DS_Store
+Thumbs.db
