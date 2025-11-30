@@ -308,7 +308,6 @@
                                           <Component id="minLbl" min="-2" max="-2" attributes="0"/>
                                       </Group>
                                   </Group>
-                                  <EmptySpace min="9" pref="9" max="-2" attributes="0"/>
                               </Group>
                           </Group>
                       </Group>
@@ -377,7 +376,7 @@
                       <Component id="caloriesALbl" alignment="3" min="-2" max="-2" attributes="0"/>
                       <Component id="caloriesATF" alignment="3" min="-2" max="-2" attributes="0"/>
                   </Group>
-                  <EmptySpace pref="20" max="32767" attributes="0"/>
+                  <EmptySpace pref="7" max="32767" attributes="0"/>
                   <Group type="103" groupAlignment="3" attributes="0">
                       <Component id="backABtn" alignment="3" min="-2" max="-2" attributes="0"/>
                       <Component id="displayABtn" alignment="3" min="-2" max="-2" attributes="0"/>

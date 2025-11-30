@@ -3,6 +3,9 @@
  * Click nbfs://nbhost/SystemFileSystem/Templates/GUIForms/JFrame.java to edit this template
  */
 package sleepapp;
+import javax.swing.table.DefaultTableModel;
+import java.time.LocalTime; //Allows us to control and update table data
+import java.time.Duration; //Used for calculating time differences (sleep duration)
 
 /**
  *
@@ -11,16 +14,95 @@ package sleepapp;
 public class SleepGUI extends javax.swing.JFrame {
     
     private static final java.util.logging.Logger logger = java.util.logging.Logger.getLogger(SleepGUI.class.getName());
+    // Create an object of SleepManager to store all sleep records
+    private final SleepManager s = new SleepManager();
+    
+    // Arrays storing helpful sleep tips depending on sleep quality
+    private final String[] goodTips = {
+        "Awesome sleeper! Keep maintaining a consistent routine",
+    "Great job! Your body loves this recovery.",
+    "Keep it up! Quality sleep = better health and focus",
+    "You are giving your brain the rest it deserves",
+    "Your immune system says THANK YOU!",
+    "Great rhythm! Keep the same sleep schedule daily",
+    "Your productivity and mood benefit from this",
+    "Stay consistent! You're winning at sleep"
+    };
 
+    private final String[] averageTips = {
+        "You're close! Try to sleep 30–60 minutes earlier for full recovery.",
+    "Good effort! Improve bedtime regularity for better sleep",
+    "A little earlier sleep could improve your energy",
+    "Keep screens away 30 minutes before bedtime",
+    "Consider using dim lights before sleeping️",
+    "A cozy blanket and cool room improve sleep quality️",
+    "Light exercise in the evening can help you fall asleep faster️",
+    "Stay hydrated during the day, but avoid too much water before sleep"
+    };
+
+    private final String[] poorTips = {
+        "Sleep more! Aim for at least 7–8 hours daily",
+    "Try reducing screen time before bed",
+    "Avoid caffeine past 6PM for better sleep",
+    "Create a calm, dark bedroom environment",
+    "Try going to bed and waking up at the same time every day",
+    "Reduce late-night heavy meals️",
+    "Short naps are okay, but avoid long naps late in the day",
+    "Try relaxing techniques: meditation or warm bath before bed"
+    };
+    
     /**
      * Creates new form SleepGUI
      */
+    
+    // Contructor
     public SleepGUI() {
         initComponents();
+        // Hide all sub-panels at first — only main buttons are visible
         addSleepPnl.setVisible(false);
         viewSleepPnl.setVisible(false);
         showTipPnl.setVisible(false);
+        viewAvgSleepField.setEditable(false);
+        
+        // Whenever the summary bar is resized, update its display properly
+        viewColorBarPnl.addComponentListener(new java.awt.event.ComponentAdapter() {
+            @Override
+            public void componentResized(java.awt.event.ComponentEvent evt) {
+                updateSummary();
+                // Recalculates and redraws health color bar
+            }
+        });
+
+        loadTableData(); // Load saved data from file into table
+        updateSummary(); // Load saved summary when app opens
+
+
+        // Default placeholder text
+        addDateField.setText("DD-MM-YYYY");
+        
+        // Time spinners formatted to show hours and minutes
+        addSleepTSpinner.setEditor(new javax.swing.JSpinner.DateEditor(addSleepTSpinner, "HH:mm"));
+        addWakeTSpinner.setEditor(new javax.swing.JSpinner.DateEditor(addWakeTSpinner, "HH:mm"));
+
+
+        // When user clicks into date field — clear placeholder
+        addDateField.addFocusListener(new java.awt.event.FocusAdapter() {
+            public void focusGained(java.awt.event.FocusEvent evt) {
+                if (addDateField.getText().equals("DD-MM-YYYY"))
+                    addDateField.setText("");
+            }
+            public void focusLost(java.awt.event.FocusEvent evt) {
+                if (addDateField.getText().isEmpty())
+                    addDateField.setText("DD-MM-YYYY");
+            }
+        });
+
+        // Duration is always automatically calculated, not typed
+        addDurationField.setEditable(false);
+        
+
     }
+    
 
     /**
      * This method is called from within the constructor to initialize the form.
@@ -44,11 +126,13 @@ public class SleepGUI extends javax.swing.JFrame {
         addWakeTimeLbl = new javax.swing.JLabel();
         addDurationLbl = new javax.swing.JLabel();
         addDateField = new javax.swing.JTextField();
-        addSleepTimeField = new javax.swing.JTextField();
-        addWakeTimeField = new javax.swing.JTextField();
         addDurationField = new javax.swing.JTextField();
         addSaveBtn = new javax.swing.JButton();
         addBackBtn = new javax.swing.JButton();
+        addClearBtn = new javax.swing.JButton();
+        addDisplayBtn = new javax.swing.JButton();
+        addSleepTSpinner = new javax.swing.JSpinner();
+        addWakeTSpinner = new javax.swing.JSpinner();
         viewSleepPnl = new javax.swing.JPanel();
         viewSumLbl = new javax.swing.JLabel();
         viewSleepTablePnl = new javax.swing.JPanel();
@@ -185,8 +269,6 @@ public class SleepGUI extends javax.swing.JFrame {
             }
         });
         addSleepPnl.add(addDateField, new org.netbeans.lib.awtextra.AbsoluteConstraints(210, 100, 170, -1));
-        addSleepPnl.add(addSleepTimeField, new org.netbeans.lib.awtextra.AbsoluteConstraints(210, 150, 170, -1));
-        addSleepPnl.add(addWakeTimeField, new org.netbeans.lib.awtextra.AbsoluteConstraints(210, 200, 170, -1));
 
         addDurationField.setEnabled(false);
         addSleepPnl.add(addDurationField, new org.netbeans.lib.awtextra.AbsoluteConstraints(210, 250, 170, -1));
@@ -194,10 +276,15 @@ public class SleepGUI extends javax.swing.JFrame {
         addSaveBtn.setBackground(new java.awt.Color(142, 218, 114));
         addSaveBtn.setFont(new java.awt.Font("Segoe UI", 1, 14)); // NOI18N
         addSaveBtn.setForeground(new java.awt.Color(0, 102, 51));
-        addSaveBtn.setText("Save");
+        addSaveBtn.setText("Ok / Save");
         addSaveBtn.setBorder(new javax.swing.border.LineBorder(new java.awt.Color(0, 153, 76), 2, true));
         addSaveBtn.setBorderPainted(false);
-        addSleepPnl.add(addSaveBtn, new org.netbeans.lib.awtextra.AbsoluteConstraints(210, 310, 70, 30));
+        addSaveBtn.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                addSaveBtnActionPerformed(evt);
+            }
+        });
+        addSleepPnl.add(addSaveBtn, new org.netbeans.lib.awtextra.AbsoluteConstraints(40, 310, 80, 30));
 
         addBackBtn.setBackground(new java.awt.Color(142, 218, 114));
         addBackBtn.setFont(new java.awt.Font("Segoe UI", 1, 14)); // NOI18N
@@ -211,6 +298,44 @@ public class SleepGUI extends javax.swing.JFrame {
             }
         });
         addSleepPnl.add(addBackBtn, new org.netbeans.lib.awtextra.AbsoluteConstraints(310, 310, 70, 30));
+
+        addClearBtn.setBackground(new java.awt.Color(142, 218, 114));
+        addClearBtn.setFont(new java.awt.Font("Segoe UI", 1, 14)); // NOI18N
+        addClearBtn.setForeground(new java.awt.Color(0, 102, 51));
+        addClearBtn.setText("Clear");
+        addClearBtn.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(0, 0, 0)));
+        addClearBtn.setBorderPainted(false);
+        addClearBtn.setMaximumSize(new java.awt.Dimension(35, 24));
+        addClearBtn.setMinimumSize(new java.awt.Dimension(35, 24));
+        addClearBtn.setPreferredSize(new java.awt.Dimension(35, 24));
+        addClearBtn.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                addClearBtnActionPerformed(evt);
+            }
+        });
+        addSleepPnl.add(addClearBtn, new org.netbeans.lib.awtextra.AbsoluteConstraints(130, 310, 80, 30));
+
+        addDisplayBtn.setBackground(new java.awt.Color(142, 218, 114));
+        addDisplayBtn.setFont(new java.awt.Font("Segoe UI", 1, 14)); // NOI18N
+        addDisplayBtn.setForeground(new java.awt.Color(0, 102, 51));
+        addDisplayBtn.setText("Display");
+        addDisplayBtn.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(0, 0, 0)));
+        addDisplayBtn.setBorderPainted(false);
+        addDisplayBtn.setMaximumSize(new java.awt.Dimension(35, 24));
+        addDisplayBtn.setMinimumSize(new java.awt.Dimension(35, 24));
+        addDisplayBtn.setPreferredSize(new java.awt.Dimension(35, 24));
+        addDisplayBtn.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                addDisplayBtnActionPerformed(evt);
+            }
+        });
+        addSleepPnl.add(addDisplayBtn, new org.netbeans.lib.awtextra.AbsoluteConstraints(220, 310, 80, 30));
+
+        addSleepTSpinner.setModel(new javax.swing.SpinnerDateModel(new java.util.Date(), null, null, java.util.Calendar.HOUR_OF_DAY));
+        addSleepPnl.add(addSleepTSpinner, new org.netbeans.lib.awtextra.AbsoluteConstraints(210, 150, 170, -1));
+
+        addWakeTSpinner.setModel(new javax.swing.SpinnerDateModel(new java.util.Date(), null, null, java.util.Calendar.HOUR_OF_DAY));
+        addSleepPnl.add(addWakeTSpinner, new org.netbeans.lib.awtextra.AbsoluteConstraints(210, 200, 170, -1));
 
         viewSleepPnl.setBackground(new java.awt.Color(210, 244, 234));
         viewSleepPnl.setMinimumSize(new java.awt.Dimension(425, 371));
@@ -280,13 +405,13 @@ public class SleepGUI extends javax.swing.JFrame {
                 .addGroup(viewSleepSumPnlLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addGroup(viewSleepSumPnlLayout.createSequentialGroup()
                         .addComponent(viewAvgSleepLbl)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                        .addComponent(viewAvgSleepField, javax.swing.GroupLayout.PREFERRED_SIZE, 41, javax.swing.GroupLayout.PREFERRED_SIZE))
+                        .addGap(18, 18, 18)
+                        .addComponent(viewAvgSleepField, javax.swing.GroupLayout.PREFERRED_SIZE, 156, javax.swing.GroupLayout.PREFERRED_SIZE))
                     .addGroup(viewSleepSumPnlLayout.createSequentialGroup()
                         .addGap(22, 22, 22)
                         .addComponent(viewColorBarPnl, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
                     .addComponent(viewSleepHealthLbl, javax.swing.GroupLayout.PREFERRED_SIZE, 107, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addContainerGap(17, Short.MAX_VALUE))
+                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
         viewSleepSumPnlLayout.setVerticalGroup(
             viewSleepSumPnlLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -339,7 +464,7 @@ public class SleepGUI extends javax.swing.JFrame {
         showTipTitleLbl.setForeground(new java.awt.Color(0, 102, 0));
         showTipTitleLbl.setIcon(new javax.swing.ImageIcon(getClass().getResource("/sleepapp/lamp.png"))); // NOI18N
         showTipTitleLbl.setText("Sleep Tip");
-        showTipPnl.add(showTipTitleLbl, new org.netbeans.lib.awtextra.AbsoluteConstraints(120, 10, 210, 50));
+        showTipPnl.add(showTipTitleLbl, new org.netbeans.lib.awtextra.AbsoluteConstraints(120, 10, 150, 50));
 
         showTipArea.setEditable(false);
         showTipArea.setColumns(20);
@@ -348,7 +473,7 @@ public class SleepGUI extends javax.swing.JFrame {
         showTipArea.setWrapStyleWord(true);
         showTipScrollP.setViewportView(showTipArea);
 
-        showTipPnl.add(showTipScrollP, new org.netbeans.lib.awtextra.AbsoluteConstraints(10, 110, 380, 100));
+        showTipPnl.add(showTipScrollP, new org.netbeans.lib.awtextra.AbsoluteConstraints(10, 110, 400, 100));
 
         showAnotherTipBtn.setBackground(new java.awt.Color(142, 218, 114));
         showAnotherTipBtn.setFont(new java.awt.Font("Segoe UI", 1, 18)); // NOI18N
@@ -356,7 +481,15 @@ public class SleepGUI extends javax.swing.JFrame {
         showAnotherTipBtn.setText("Show Another Tip");
         showAnotherTipBtn.setBorder(new javax.swing.border.LineBorder(new java.awt.Color(0, 153, 76), 2, true));
         showAnotherTipBtn.setBorderPainted(false);
-        showTipPnl.add(showAnotherTipBtn, new org.netbeans.lib.awtextra.AbsoluteConstraints(50, 250, 180, 50));
+        showAnotherTipBtn.setMaximumSize(new java.awt.Dimension(156, 24));
+        showAnotherTipBtn.setMinimumSize(new java.awt.Dimension(156, 24));
+        showAnotherTipBtn.setPreferredSize(new java.awt.Dimension(156, 24));
+        showAnotherTipBtn.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                showAnotherTipBtnActionPerformed(evt);
+            }
+        });
+        showTipPnl.add(showAnotherTipBtn, new org.netbeans.lib.awtextra.AbsoluteConstraints(50, 250, 180, 30));
 
         showBackBtn.setBackground(new java.awt.Color(142, 218, 114));
         showBackBtn.setFont(new java.awt.Font("Segoe UI", 1, 18)); // NOI18N
@@ -364,12 +497,15 @@ public class SleepGUI extends javax.swing.JFrame {
         showBackBtn.setText("Back");
         showBackBtn.setBorder(new javax.swing.border.LineBorder(new java.awt.Color(0, 153, 76), 2, true));
         showBackBtn.setBorderPainted(false);
+        showBackBtn.setMaximumSize(new java.awt.Dimension(35, 24));
+        showBackBtn.setMinimumSize(new java.awt.Dimension(35, 24));
+        showBackBtn.setPreferredSize(new java.awt.Dimension(35, 24));
         showBackBtn.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 showBackBtnActionPerformed(evt);
             }
         });
-        showTipPnl.add(showBackBtn, new org.netbeans.lib.awtextra.AbsoluteConstraints(270, 250, 70, 50));
+        showTipPnl.add(showBackBtn, new org.netbeans.lib.awtextra.AbsoluteConstraints(270, 250, 70, 30));
 
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
         getContentPane().setLayout(layout);
@@ -399,14 +535,12 @@ public class SleepGUI extends javax.swing.JFrame {
 
     private void mainViewSumBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_mainViewSumBtnActionPerformed
         // TODO add your handling code here:
-        mainSleepPnl.setVisible(false);
-        viewSleepPnl.setVisible(true);
+        mainSleepPnl.setVisible(false);// Hide the main panel
+        viewSleepPnl.setVisible(true);// Show the summary panel
+        loadTableData();// Load all saved sleep records into the table
+        updateSummary();// Refresh average sleep + color bar display
 
     }//GEN-LAST:event_mainViewSumBtnActionPerformed
-
-    private void viewAvgSleepFieldActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_viewAvgSleepFieldActionPerformed
-        // TODO add your handling code here:
-    }//GEN-LAST:event_viewAvgSleepFieldActionPerformed
 
     private void addDateFieldActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_addDateFieldActionPerformed
         // TODO add your handling code here:
@@ -414,14 +548,14 @@ public class SleepGUI extends javax.swing.JFrame {
 
     private void mainAddSleepBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_mainAddSleepBtnActionPerformed
         // TODO add your handling code here:
-        mainSleepPnl.setVisible(false);
-        addSleepPnl.setVisible(true);
+        mainSleepPnl.setVisible(false);// Hide main page
+        addSleepPnl.setVisible(true);// Show Add Sleep page
 
     }//GEN-LAST:event_mainAddSleepBtnActionPerformed
 
     private void viewBackBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_viewBackBtnActionPerformed
         // TODO add your handling code here:
-        mainSleepPnl.setVisible(true);
+        mainSleepPnl.setVisible(true);// Show main menu
         addSleepPnl.setVisible(false);
         viewSleepPnl.setVisible(false);
         showTipPnl.setVisible(false);
@@ -446,17 +580,233 @@ public class SleepGUI extends javax.swing.JFrame {
 
     private void viewTipBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_viewTipBtnActionPerformed
         // TODO add your handling code here:
-        viewSleepPnl.setVisible(false);
-        showTipPnl.setVisible(true);
+        viewSleepPnl.setVisible(false);// Hide summary page
+        showTipPnl.setVisible(true);// Show the tip page
+        
+        showTip(); // Display a random sleep tip instantly
 
     }//GEN-LAST:event_viewTipBtnActionPerformed
 
     private void mainBackBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_mainBackBtnActionPerformed
         // TODO add your handling code here:
         mainmenu.MainMenuGUI mainMenu= new mainmenu.MainMenuGUI();
+        // Open Main Menu window (another JFrame)
         mainMenu.setVisible(true);
-        this.dispose();
+        this.dispose();// Close current Sleep Tracker window
     }//GEN-LAST:event_mainBackBtnActionPerformed
+
+    private void addClearBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_addClearBtnActionPerformed
+        // TODO add your handling code here:
+        addDateField.setText("DD-MM-YYYY");// Reset input field
+        addDurationField.setText("");
+        // Clear auto-calculated duration display
+        
+        // Reset sleep & wake spinners to current time
+        addSleepTSpinner.setValue(new java.util.Date());
+        addWakeTSpinner.setValue(new java.util.Date());
+        
+    }//GEN-LAST:event_addClearBtnActionPerformed
+    
+    
+    
+    private void addDisplayBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_addDisplayBtnActionPerformed
+        // TODO add your handling code here:
+        addSleepPnl.setVisible(false);      // hide Add panel
+        viewSleepPnl.setVisible(true);   // show Summary panel
+        
+        loadTableData(); // Refresh table data
+        updateSummary(); // Refresh average + sleep health bar
+        
+   
+    }//GEN-LAST:event_addDisplayBtnActionPerformed
+    // This method updates the Sleep Summary section:
+    private void updateSummary() {
+
+        double avg = s.getAverageHours(); // Get the average sleep duration stored in SleepManager
+        
+        // If panel height is too small, increase it so bar is visible
+        if (viewColorBarPnl.getHeight() < 20) {
+            viewColorBarPnl.setPreferredSize(new java.awt.Dimension(
+                viewColorBarPnl.getWidth(), 25));
+        }
+
+        // Display the average hours in the text field (formatted to 2 decimal places)
+        viewAvgSleepField.setText(String.format("%.2f", avg));
+
+        // Convert average hours into a percentage (8 hours = 100%)
+        int percent = (int)((avg / 8.0) * 100);
+        
+        // Make sure the percentage stays between 0% and 100%
+        percent = Math.max(0, Math.min(percent, 100));
+        
+        // Select color for the sleep health bar based on sleep quality
+        java.awt.Color barColor;
+        if (avg < 6) {
+            barColor = java.awt.Color.RED; // Less than 6 hrs = Poor sleep
+        } else if (avg < 8) {
+            barColor = java.awt.Color.YELLOW; // 6–7.9 hrs = Average sleep
+        } else {
+            barColor = java.awt.Color.GREEN; // 8+ hrs = Good sleep
+        }
+
+
+        // Create a new small panel that will act as the colored bar
+        javax.swing.JPanel bar = new javax.swing.JPanel();
+        bar.setBackground(barColor);// Give it the right color
+
+        viewColorBarPnl.setLayout(null); // Remove auto-layout so we can manually size the bar
+
+        int totalWidth = viewColorBarPnl.getWidth();
+        if (totalWidth == 0) totalWidth = 300;
+        // If width not loaded yet, use a temporary width
+        // Width of bar depends on percentage (example: 75% = 75% width)
+        int barWidth = (int)(totalWidth * (percent / 100.0));
+
+        // Make bar height same as panel height or minimum height 25px
+        int barHeight = Math.max(viewColorBarPnl.getHeight(), 25);
+        bar.setBounds(0, 0, barWidth, barHeight);// Position and size the bar
+        viewColorBarPnl.add(bar);// Add bar to panel
+
+        // Create %, shown as text over the bar
+        javax.swing.JLabel txt = new javax.swing.JLabel(percent + "%", javax.swing.SwingConstants.CENTER);
+        txt.setFont(new java.awt.Font("Arial", java.awt.Font.BOLD, 14));
+        txt.setForeground(java.awt.Color.BLACK);// Black text for visibility
+        txt.setBounds(0, 0, totalWidth, barHeight);// Same size as whole panel
+        viewColorBarPnl.add(txt);// Add label on top of bar
+        
+        // Refresh the panel so changes show immediately
+        viewColorBarPnl.revalidate();
+        viewColorBarPnl.repaint();
+
+    }
+    // This method shows a new sleep tip based on the user’s average sleep quality
+    private void showTip() {
+        double avg = s.getAverageHours();
+        // Get the average hours to choose correct tip category
+        java.util.Random rand = new java.util.Random(); // Random generator to pick a different tip each time
+        String tip; // Store the final selected tip
+        
+        // Choose a tip group based on sleep health
+        if (avg < 6) {
+            tip = poorTips[rand.nextInt(poorTips.length)];// Poor sleep - pick from poor tips list
+        } else if (avg < 8) {
+            tip = averageTips[rand.nextInt(averageTips.length)];// Average sleep - pick from average tips list
+        } else {
+            tip = goodTips[rand.nextInt(goodTips.length)];// Good sleep - pick from good tips list
+        }
+        
+        // Display the selected tip inside the scrollable text area
+        showTipArea.setText("Sleep Tip:\n\n" + tip);
+        // add header + tip text with spacing
+    }
+
+
+
+    
+    private void addSaveBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_addSaveBtnActionPerformed
+        // TODO add your handling code here:
+        // Read user input
+        // Read the text entered in the Date field (remove extra spaces)
+        String date = addDateField.getText().trim();
+
+        // Validate Date Field
+        if (date.isEmpty() || date.equals("DD-MM-YYYY")) {
+            // Show popup if date field is blank or still in placeholder form
+            javax.swing.JOptionPane.showMessageDialog(this,
+                "Please enter a valid date!",
+                "Input Error",
+                javax.swing.JOptionPane.PLAIN_MESSAGE);
+
+            return;// Stop further execution
+        }
+
+        // Validate Date Format (DD-MM-YYYY)
+        if (!date.matches("\\d{2}-\\d{2}-\\d{4}")) {
+            // If the date does not match the correct pattern - show error
+            javax.swing.JOptionPane.showMessageDialog(this,
+                "Please enter a valid date!",
+                "Input Error",
+                javax.swing.JOptionPane.PLAIN_MESSAGE);
+
+            return;
+        }
+        // Formatter to convert time from spinner into HH:mm (24-hour format)
+        java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("HH:mm");
+        sdf.setLenient(false);// Strict checking for time format
+        
+        // Convert selected spinner times into text form (e.g. "00:00")
+        String sleepT = sdf.format(addSleepTSpinner.getValue());
+        String wakeT = sdf.format(addWakeTSpinner.getValue());
+
+        // Extract sleep time hour & minute from spinners
+        java.util.Calendar cal1 = java.util.Calendar.getInstance();
+        cal1.setTime((java.util.Date) addSleepTSpinner.getValue());
+        int sh = cal1.get(java.util.Calendar.HOUR_OF_DAY);// sleep hour
+        int sm = cal1.get(java.util.Calendar.MINUTE);// sleep minute
+        
+        // Extract wake time hour+minute values from spinner
+        java.util.Calendar cal2 = java.util.Calendar.getInstance();
+        cal2.setTime((java.util.Date) addWakeTSpinner.getValue());
+        int wh = cal2.get(java.util.Calendar.HOUR_OF_DAY);// wake hour
+        int wm = cal2.get(java.util.Calendar.MINUTE);// wake minute
+        
+        // Convert both times into total minutes from midnight
+        int startTotal = sh * 60 + sm;
+        int wakeTotal = wh * 60 + wm;
+
+        // Overnight case handling
+        if (wakeTotal < startTotal) {
+            wakeTotal += 24 * 60;// Add 24 hours to calculate correct duration
+        }
+        
+        // Calculate duration in minutes
+        int durationMins = wakeTotal - startTotal;
+
+        // Validate Duration
+        if (durationMins <= 0) {
+            // Invalid Duartion
+            javax.swing.JOptionPane.showMessageDialog(this,
+                "Wake time must be later than sleep time!",
+                "Time Error",
+                javax.swing.JOptionPane.PLAIN_MESSAGE);
+            return;
+        }
+        
+        // Convert minutes into a decimal hours value
+        double duration = durationMins / 60.0;
+        
+        // Split duration into hours and minutes for pretty display
+        int hours = durationMins / 60;
+        int mins = durationMins % 60;
+        
+        // Format duration result like “06:30”
+        String durationStr = String.format("%02d:%02d", hours, mins);
+        
+        //Display duration in the duration textbox
+        addDurationField.setText(durationStr);
+
+        // Save to system
+        SleepApp entry = new SleepApp(date, sleepT, wakeT, duration);
+        // Store the new entry in memory (ArrayList) and in text file
+        s.addEntry(entry);
+        s.saveToFile();
+        
+        // Update table so user instantly sees added record
+        loadTableData();
+        
+        //final message dialog
+        javax.swing.JOptionPane.showMessageDialog(this,
+            "Saved successfully!");
+    }//GEN-LAST:event_addSaveBtnActionPerformed
+
+    private void viewAvgSleepFieldActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_viewAvgSleepFieldActionPerformed
+        // TODO add your handling code here:
+    }//GEN-LAST:event_viewAvgSleepFieldActionPerformed
+
+    private void showAnotherTipBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_showAnotherTipBtnActionPerformed
+        // TODO add your handling code here:
+        showTip();
+    }//GEN-LAST:event_showAnotherTipBtnActionPerformed
 
     /**
      * @param args the command line arguments
@@ -482,19 +832,38 @@ public class SleepGUI extends javax.swing.JFrame {
         /* Create and display the form */
         java.awt.EventQueue.invokeLater(() -> new SleepGUI().setVisible(true));
     }
+    
+    // Load all stored sleep data into JTable
+    public void loadTableData() {
+    DefaultTableModel model = (DefaultTableModel) sleepTbl.getModel();
+    model.setRowCount(0);// Clear previous rows
+
+    // Add each record from SleepManager into table row
+    for (SleepApp e : s.getEntries()) {
+        model.addRow(new Object[]{
+            e.getDate(),
+            e.getSleepTime(),
+            e.getWakeTime(),
+            e.getDurationInHHMM() //formatted duration
+        });
+    }
+}
+
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JButton addBackBtn;
+    private javax.swing.JButton addClearBtn;
     private javax.swing.JTextField addDateField;
     private javax.swing.JLabel addDateLbl;
+    private javax.swing.JButton addDisplayBtn;
     private javax.swing.JTextField addDurationField;
     private javax.swing.JLabel addDurationLbl;
     private javax.swing.JButton addSaveBtn;
     private javax.swing.JPanel addSleepPnl;
-    private javax.swing.JTextField addSleepTimeField;
+    private javax.swing.JSpinner addSleepTSpinner;
     private javax.swing.JLabel addSleepTimeLbl;
     private javax.swing.JLabel addSleepTitleLbl;
-    private javax.swing.JTextField addWakeTimeField;
+    private javax.swing.JSpinner addWakeTSpinner;
     private javax.swing.JLabel addWakeTimeLbl;
     private javax.swing.JScrollPane jScrollPane1;
     private javax.swing.JButton mainAddSleepBtn;
