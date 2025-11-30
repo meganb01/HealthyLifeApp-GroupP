@@ -4,6 +4,11 @@
  */
 package sleepapp;
 import javax.swing.table.DefaultTableModel;
+
+import org.netbeans.lib.awtextra.AbsoluteConstraints;
+import org.netbeans.lib.awtextra.AbsoluteLayout;
+
+
 import java.time.LocalTime; //Allows us to control and update table data
 import java.time.Duration; //Used for calculating time differences (sleep duration)
 
@@ -590,9 +595,8 @@ public class SleepGUI extends javax.swing.JFrame {
     private void mainBackBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_mainBackBtnActionPerformed
         // TODO add your handling code here:
         mainmenu.MainMenuGUI mainMenu= new mainmenu.MainMenuGUI();
-        // Open Main Menu window (another JFrame)
         mainMenu.setVisible(true);
-        this.dispose();// Close current Sleep Tracker window
+        this.dispose();
     }//GEN-LAST:event_mainBackBtnActionPerformed
 
     private void addClearBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_addClearBtnActionPerformed

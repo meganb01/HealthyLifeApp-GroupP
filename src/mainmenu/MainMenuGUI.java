@@ -4,8 +4,7 @@
  */
 package mainmenu;
 
-import exerciseapp.ExerciseGUI;
-import dietapp.DietGUI;
+
 import sleepapp.SleepGUI;
 
 /**
@@ -15,8 +14,7 @@ import sleepapp.SleepGUI;
 public class MainMenuGUI extends javax.swing.JFrame {
 
     private static final java.util.logging.Logger logger = java.util.logging.Logger.getLogger(MainMenuGUI.class.getName());
-    private ExerciseGUI exercise;
-    private DietGUI diet;
+   
     private SleepGUI sleep;
 
     /**
@@ -24,8 +22,7 @@ public class MainMenuGUI extends javax.swing.JFrame {
      */
     public MainMenuGUI() {
         initComponents();
-        exercise = new ExerciseGUI();
-        diet= new DietGUI();
+        
         sleep= new SleepGUI();
     }
 
@@ -196,16 +193,13 @@ public class MainMenuGUI extends javax.swing.JFrame {
 
     private void dietBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_dietBtnActionPerformed
         // TODO add your handling code here:
-        dietapp.DietGUI dietWindow = new dietapp.DietGUI();
-        dietWindow.setVisible(true);
-        this.dispose();
+        
+        
     }//GEN-LAST:event_dietBtnActionPerformed
 
     private void exerciseBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_exerciseBtnActionPerformed
         // TODO add your handling code here:
-        exerciseapp.ExerciseGUI exerciseWindow = new exerciseapp.ExerciseGUI();
-        exerciseWindow.setVisible(true);
-        this.dispose();
+        
     }//GEN-LAST:event_exerciseBtnActionPerformed
 
     private void sleepBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_sleepBtnActionPerformed
